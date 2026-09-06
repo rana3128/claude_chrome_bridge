@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Claude Chrome Bridge</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <header>
+    <h1>Claude Chrome Bridge</h1>
+    <span id="status" class="pill">…</span>
+  </header>
+
+  <section id="pairing" hidden>
+    <p class="hint" id="pairing-hint"></p>
+    <label for="token">Pairing token</label>
+    <input id="token" type="password" placeholder="paste from ~/.claude-chrome-bridge/token.json" autocomplete="off" spellcheck="false">
+    <div class="row">
+      <input id="port" type="number" min="1" max="65535" placeholder="8787" aria-label="Server port">
+      <button id="save-token" class="primary">Pair</button>
+    </div>
+  </section>
+
+  <section id="active">
+    <h2>This tab</h2>
+    <div id="active-tab" class="tab-card"></div>
+  </section>
+
+  <section id="shared">
+    <h2>Shared with Claude <span id="shared-count" class="count">0</span></h2>
+    <ul id="shared-list"></ul>
+    <p class="hint" id="idle-hint"></p>
+  </section>
+
+  <footer>
+    <button id="panic" class="danger">Stop all sharing</button>
+    <p class="hint">
+      Claude can only see tabs listed above. Chrome shows its own “is debugging this browser” banner on every
+      shared tab — that banner is expected, and closing it stops sharing.
+    </p>
+  </footer>
+
+  <div id="toast" role="status" aria-live="polite"></div>
+  <script src="popup.js" type="module"></script>
+</body>
+</html>
