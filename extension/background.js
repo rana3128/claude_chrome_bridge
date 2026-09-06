@@ -80,7 +80,14 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
           const grant = await grants.share(tab);
           // Attaching now means Chrome's own "is debugging" banner appears the
           // moment sharing starts, and console/network capture begins at once.
-          await cdp.attach(tab.id).catch((e) => { throw new Error(e.message); });
+          // If it fails, the share is rolled back: a grant the user was told
+          // did not happen must not linger.
+          try {
+            await cdp.attach(tab.id);
+          } catch (e) {
+            await grants.revoke(tab.id, 'attach-failed');
+            throw new Error(`Could not start capture on this tab: ${e.message}`);
+          }
           connection.notifyServer('grants.changed', { reason: 'shared', tabId: tab.id });
           return sendResponse({ ok: true, grant });
         }
