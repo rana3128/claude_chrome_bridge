@@ -133,3 +133,21 @@ debuggable in isolation.
 
 **The extension's permission store is tested under Node with a small `chrome` stub.**
 It is the security core; testing it only by hand in a browser was not acceptable.
+
+## Redaction precision (learned from the first real page)
+
+**Card numbers are Luhn-checked, not pattern-matched.** Masking every 13–19 digit run turned a
+Facebook app id, a business id and a configuration id into `[REDACTED:card?]` on the very first
+real page — destroying exactly the identifiers you open that page to read. Luhn is what actually
+separates a card number from an object id.
+
+**"Token" alone is no longer treated as a credential.** The bearer-token rule matched the English
+word followed by any 12-character word, turning "60-day expiry token Configuration ID" into
+"token [REDACTED] ID". Only `Bearer`/`Basic` prefixes and shaped values are matched now.
+
+Both were false positives, and false positives in a redactor are not free: they silently destroy
+the data the tool exists to deliver, and they look identical to a real secret being caught.
+
+**StaticText that repeats its parent's accessible name is dropped, and zero-width marks are
+stripped.** On a real page nearly half the a11y output was `heading "X"` immediately followed by
+`text "X"`, plus dozens of `text "​"` lines from layout hacks.

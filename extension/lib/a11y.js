@@ -29,6 +29,14 @@ const INTERACTIVE = new Set([
 
 const STATE_PROPS = ['checked', 'selected', 'expanded', 'disabled', 'required', 'invalid', 'pressed', 'focused'];
 
+// Zero-width and directional marks are invisible to the user and pure noise to
+// a model, but pages emit them constantly as layout hacks.
+const INVISIBLE = /[\u200b-\u200f\u2028\u2029\ufeff\u00ad]/g;
+
+function clean(text) {
+  return String(text ?? '').replace(INVISIBLE, '').replace(/\s+/g, ' ').trim();
+}
+
 function val(field) {
   if (!field) return undefined;
   const v = field.value;
@@ -55,12 +63,12 @@ export function compactAxTree(nodes, { maxNodes = 1500, maxDepth = 25 } = {}) {
   let dropped = 0;
   let truncated = false;
 
-  const walk = (node, depth) => {
+  const walk = (node, depth, parentName = '') => {
     if (!node || truncated) return;
     if (kept >= maxNodes) { truncated = true; return; }
 
     const role = val(node.role) || 'unknown';
-    const name = (val(node.name) || '').trim();
+    const name = clean(val(node.name));
     const props = propMap(node);
     const ignored = node.ignored === true;
     // Collapse: presentational or unnamed-and-uninteresting nodes contribute
@@ -72,22 +80,25 @@ export function compactAxTree(nodes, { maxNodes = 1500, maxDepth = 25 } = {}) {
 
     if (collapse) {
       dropped++;
-      for (const childId of node.childIds || []) walk(byId.get(childId), depth);
+      for (const childId of node.childIds || []) walk(byId.get(childId), depth, parentName);
       return;
     }
 
     if (role === 'StaticText') {
-      // Text nodes are noise as separate lines when their parent already names
-      // them; keep only text that adds something.
-      const text = redactText(name);
-      if (text) {
-        lines.push(`${'  '.repeat(Math.min(depth, maxDepth))}text "${text}"`);
-        kept++;
+      // A control's text usually *is* its accessible name, so emitting it again
+      // as a child doubles the size of the output and adds nothing. Keep only
+      // text that says something the parent did not.
+      if (!name || name === parentName || parentName.includes(name)) {
+        dropped++;
+        return;
       }
+      lines.push(`${'  '.repeat(Math.min(depth, maxDepth))}text "${redactText(name)}"`);
+      kept++;
       return;
     }
 
     let value = val(node.value);
+    if (typeof value === 'string') value = clean(value);
     if (value != null && value !== '') {
       value = isSensitiveField({ name, ariaLabel: name, type: props.roledescription })
         ? '[REDACTED]'
@@ -108,7 +119,7 @@ export function compactAxTree(nodes, { maxNodes = 1500, maxDepth = 25 } = {}) {
     lines.push(`${'  '.repeat(Math.min(depth, maxDepth))}${parts.join(' ')}`);
     kept++;
 
-    for (const childId of node.childIds || []) walk(byId.get(childId), depth + 1);
+    for (const childId of node.childIds || []) walk(byId.get(childId), depth + 1, name);
   };
 
   for (const root of roots) walk(root, 0);

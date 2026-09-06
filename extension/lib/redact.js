@@ -22,15 +22,34 @@ const VALUE_PATTERNS = [
   // AWS access key id + secret access key
   [/\b(?:AKIA|ASIA|AROA|AIDA)[0-9A-Z]{16}\b/g, '[REDACTED:aws-key]'],
   [/\baws_secret_access_key\s*[=:]\s*\S+/gi, 'aws_secret_access_key=[REDACTED]'],
-  // Authorization headers and bearer tokens
-  [/\b(Bearer|Basic|Token)\s+[A-Za-z0-9._~+/=-]{12,}/gi, '$1 [REDACTED]'],
+  // Authorization headers and bearer tokens. "Token" alone is deliberately not
+  // matched here: it is an ordinary English word, and matching it mangled real
+  // page text like "expiry token Configuration ID".
+  [/\b(Bearer|Basic)\s+[A-Za-z0-9._~+/=-]{12,}/gi, '$1 [REDACTED]'],
   // PEM private key blocks
   [/-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z ]*PRIVATE KEY-----/g, '[REDACTED:private-key]'],
   // key=value / "key": "value" where the key name reads as a secret
   [/((?:pass(?:wo?r?d)?|secret|token|api[-_]?key|auth|credential)["']?\s*[:=]\s*["']?)([^\s"',;&}]{4,})/gi, '$1[REDACTED]'],
-  // Bare card numbers (13-19 digits, optionally grouped)
-  [/\b(?:\d[ -]?){12,18}\d\b/g, '[REDACTED:card?]'],
+  // Bare card numbers. Checked against Luhn rather than masking every long
+  // digit run: object ids (Facebook app ids, order numbers, request ids) are
+  // long digit runs too, and they are usually the whole point of the page.
+  [/\b(?:\d[ -]?){12,18}\d\b/g, (match) => (looksLikeCardNumber(match) ? '[REDACTED:card?]' : match)],
 ];
+
+/** Luhn checksum — what actually distinguishes a card number from an id. */
+function looksLikeCardNumber(candidate) {
+  const digits = candidate.replace(/[^0-9]/g, '');
+  if (digits.length < 13 || digits.length > 19) return false;
+  let sum = 0;
+  let double = false;
+  for (let i = digits.length - 1; i >= 0; i--) {
+    let d = digits.charCodeAt(i) - 48;
+    if (double) { d *= 2; if (d > 9) d -= 9; }
+    sum += d;
+    double = !double;
+  }
+  return sum % 10 === 0;
+}
 
 /**
  * True when a form field must never have its value captured.

@@ -83,3 +83,26 @@ test('redactDeep terminates on deeply nested and cyclic-ish structures', () => {
   for (let i = 0; i < 40; i++) node = { child: node };
   assert.doesNotThrow(() => redactDeep(node));
 });
+
+test('long numeric object ids survive — they are usually the point of the page', () => {
+  const url = 'https://developers.facebook.com/apps/28272531945713881/business-login/configurations/';
+  assert.equal(redactUrl(url), url);
+  assert.equal(redactText('Configuration ID: 1289379612953371'), 'Configuration ID: 1289379612953371');
+});
+
+test('digit runs that pass the Luhn check are still masked', () => {
+  for (const card of ['4111111111111111', '5500 0000 0000 0004', '4012-8888-8888-1881']) {
+    assert.match(redactText(`paid with ${card} today`), /REDACTED:card\?/, `should mask ${card}`);
+  }
+});
+
+test('"token" as an ordinary English word is not treated as a credential', () => {
+  const prose = 'WhatsApp configuration with 60-day expiry token Configuration ID';
+  assert.equal(redactText(prose), prose);
+  assert.equal(redactText('Token will expire in 60 days'), 'Token will expire in 60 days');
+});
+
+test('real bearer and basic credentials are still masked', () => {
+  assert.match(redactText('Authorization: Bearer abcdef1234567890abcdef'), /Bearer \[REDACTED\]/);
+  assert.match(redactText('Authorization: Basic dXNlcjpwYXNzd29yZA=='), /Basic \[REDACTED\]/);
+});

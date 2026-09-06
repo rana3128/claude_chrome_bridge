@@ -93,3 +93,39 @@ test('an empty tree produces empty output rather than throwing', () => {
   assert.deepEqual(compactAxTree([]), { text: '', nodesKept: 0, nodesDropped: 0, truncated: false });
   assert.doesNotThrow(() => compactAxTree(undefined));
 });
+
+test('text that merely repeats its parent name is dropped', () => {
+  // A control's text usually *is* its accessible name; emitting both doubles
+  // the output for nothing, which is most of what a real page produces.
+  const nodes = [
+    node('1', 'RootWebArea', 'Doc', { childIds: ['2', '4'] }),
+    node('2', 'heading', 'Configurations', { parentId: '1', childIds: ['3'] }),
+    node('3', 'StaticText', 'Configurations', { parentId: '2' }),
+    node('4', 'button', 'Copy link to clipboard', { parentId: '1', childIds: ['5'], backendDOMNodeId: 4 }),
+    node('5', 'StaticText', 'Copy link', { parentId: '4' }),
+  ];
+  const { text } = compactAxTree(nodes);
+  assert.equal(text.split('\n').filter((l) => l.includes('Configurations')).length, 1);
+  assert.equal(text.includes('text "Copy link"'), false, 'text contained by the parent name adds nothing');
+});
+
+test('text that adds something to its parent is kept', () => {
+  const nodes = [
+    node('1', 'RootWebArea', 'Doc', { childIds: ['2'] }),
+    node('2', 'listitem', 'Config', { parentId: '1', childIds: ['3'] }),
+    node('3', 'StaticText', 'Token will expire in 60 days', { parentId: '2' }),
+  ];
+  assert.match(compactAxTree(nodes).text, /text "Token will expire in 60 days"/);
+});
+
+test('zero-width and directional marks are stripped, not emitted as nodes', () => {
+  const nodes = [
+    node('1', 'RootWebArea', 'Doc', { childIds: ['2', '3'] }),
+    node('2', 'StaticText', '​', { parentId: '1' }),
+    node('3', 'button', 'Toggle group ​', { parentId: '1', backendDOMNodeId: 3 }),
+  ];
+  const { text } = compactAxTree(nodes);
+  assert.equal(text.includes('​'), false, 'invisible characters should never reach the output');
+  assert.match(text, /button "Toggle group" ref=3/);
+  assert.equal(text.split('\n').filter((l) => l.startsWith('text')).length, 0);
+});
