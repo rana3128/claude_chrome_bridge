@@ -68,13 +68,18 @@ async function render() {
     serverList.appendChild(li);
   }
 
-  const needsPairing = ['no-token', 'unauthorized'].includes(state.connection.status);
+  // Offer pairing whenever we are not connected, not only when the token is
+  // known to be missing: if this form is the only way to recover, hiding it in
+  // any failure state leaves the user stuck.
+  const needsPairing = conn.status !== 'connected';
   $('pairing').hidden = !needsPairing;
   if (needsPairing) {
-    $('pairing-hint').textContent =
-      state.connection.lastError ||
-      'Start the MCP server, then paste the token it wrote to ~/.claude-chrome-bridge/token.json.';
-    if (!$('port').value) $('port').value = state.connection.port || 8787;
+    $('pairing-hint').textContent = conn.lastError || {
+      'no-token': 'Run `npx claude-chrome-bridge pair` and paste the token below.',
+      unauthorized: 'That token was rejected. Run `npx claude-chrome-bridge pair` for the current one.',
+      connecting: 'Looking for a bridge…',
+    }[conn.status] || 'No bridge is running. Start your agent, or run `npx claude-chrome-bridge`.';
+    if (!$('port').value) $('port').value = conn.port || 8787;
   }
 
   // --- this tab -----------------------------------------------------------

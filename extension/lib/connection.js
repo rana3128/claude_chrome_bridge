@@ -44,6 +44,7 @@ let coldCursor = 0;
 let sweeps = 0;
 let sweepTimer = null;
 let unauthorized = false;
+let tokenMissing = true;
 let lastError = null;
 const watchers = new Set();
 
@@ -54,7 +55,11 @@ export function getState() {
   const connected = list.filter((l) => l.status === 'connected');
 
   let status = 'disconnected';
-  if (unauthorized) status = 'unauthorized';
+  // Without a token there is nothing to report but that. Letting this fall
+  // through to "disconnected" told the user their server was missing and hid
+  // the pairing form, leaving no way to recover through the UI.
+  if (tokenMissing) status = 'no-token';
+  else if (unauthorized) status = 'unauthorized';
   else if (connected.length) status = 'connected';
   else if (list.some((l) => l.status === 'connecting')) status = 'connecting';
 
@@ -138,10 +143,11 @@ function dropAll(reason) {
 /** Dial every port in the range that we do not already have a live link on. */
 export async function connect({ force = false } = {}) {
   const { token, port: base } = await settings();
+  tokenMissing = !token;
   if (!token) {
-    lastError = 'Paste the pairing token from the MCP server to finish setup.';
+    lastError = 'Run `npx claude-chrome-bridge pair` and paste the token below.';
     unauthorized = false;
-    for (const [, l] of links) l.status = 'disconnected';
+    dropAll('not paired');
     announce();
     return;
   }

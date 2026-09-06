@@ -62,6 +62,16 @@ test.after(async () => {
   for (const s of servers) await s.close();
 });
 
+test('an unpaired extension says so, rather than blaming a missing server', async () => {
+  // Reporting "disconnected" here sent the user hunting for a server that was
+  // running fine, and hid the pairing form that was the only way to recover.
+  await local.set({ token: '', port: BASE });
+  await connection.connect();
+  const state = connection.getState();
+  assert.equal(state.status, 'no-token');
+  assert.match(state.lastError, /pair/i);
+});
+
 test('the extension connects to every server in the port range, not just the first', async () => {
   const a = await startServer(BASE);
   const b = await startServer(BASE + 1);
