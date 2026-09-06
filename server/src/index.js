@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Claude Chrome Bridge — MCP server.
+// Porthole — MCP server.
 //
 // Speaks MCP to Claude Code over stdio, and speaks the bridge protocol to the
 // Chrome extension over a loopback WebSocket. stdout belongs to MCP: every
@@ -13,9 +13,28 @@ import { Bridge, BridgeError } from './bridge.js';
 import { FakeTabBackend } from './fake-tab.js';
 import { loadOrCreateToken, TOKEN_PATH } from './token.js';
 import { TOOL_DEFINITIONS, Router, createHandlers } from './tools.js';
+import { printHelp, runPair, runSetup, runExtensionPath } from './cli.js';
 
-const VERSION = '0.1.0';
+const VERSION = '1.0.0';
 const argv = process.argv.slice(2);
+
+// Subcommands are for humans; running with no subcommand is the MCP server,
+// because that is how an MCP client launches this binary.
+const SUBCOMMANDS = {
+  setup: () => runSetup(argv),
+  pair: () => runPair(),
+  extension: () => runExtensionPath(),
+  help: () => printHelp(VERSION),
+};
+const subcommand = SUBCOMMANDS[argv[0]];
+if (subcommand || argv.includes('--help') || argv.includes('-h')) {
+  (subcommand || (() => printHelp(VERSION)))();
+  process.exit(0);
+}
+if (argv.includes('--version') || argv.includes('-v')) {
+  console.log(VERSION);
+  process.exit(0);
+}
 const flag = (name) => argv.includes(`--${name}`);
 const opt = (name, fallback) => {
   const i = argv.indexOf(`--${name}`);

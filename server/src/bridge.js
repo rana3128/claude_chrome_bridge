@@ -193,7 +193,7 @@ export class Bridge extends EventEmitter {
     if (!this.isConnected()) {
       return Promise.reject(new BridgeError(
         'disconnected',
-        'The Chrome extension is not connected. Open Chrome, click the Claude Chrome Bridge icon, ' +
+        'The Chrome extension is not connected. Open Chrome, click the Porthole icon, ' +
         'and check that it shows "Connected". The MV3 service worker sleeps — reconnection usually ' +
         'takes a few seconds after the popup is opened.',
       ));

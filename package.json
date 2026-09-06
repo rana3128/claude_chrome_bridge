@@ -1,12 +1,37 @@
 {
   "name": "claude-chrome-bridge",
-  "version": "0.1.0",
-  "private": true,
+  "version": "1.0.0",
+  "description": "Let Claude Code and other MCP clients see and control tabs in your existing Chrome, with your real logged-in sessions intact. Per-tab opt-in, read-only by default, everything local.",
   "type": "module",
+  "license": "MIT",
+  "author": "Vijay Singh",
+  "homepage": "https://github.com/vijaysingh/porthole#readme",
+  "repository": { "type": "git", "url": "git+https://github.com/vijaysingh/porthole.git" },
+  "bugs": { "url": "https://github.com/vijaysingh/porthole/issues" },
+  "keywords": [
+    "mcp", "model-context-protocol", "claude", "claude-code", "chrome",
+    "chrome-extension", "browser-automation", "devtools-protocol", "cdp", "porthole"
+  ],
+  "bin": { "claude-chrome-bridge": "server/src/index.js" },
+  "files": [
+    "server/src",
+    "extension",
+    "README.md",
+    "PRIVACY.md",
+    "LICENSE"
+  ],
   "scripts": {
-    "start": "npm --prefix server run start",
-    "dev": "npm --prefix server run dev",
-    "test": "npm --prefix server test",
-    "install:all": "npm --prefix server install"
+    "start": "node server/src/index.js",
+    "dev": "node server/src/index.js --verbose",
+    "setup": "node server/src/index.js setup",
+    "pair": "node server/src/index.js pair",
+    "test": "node --test server/test/*.test.js",
+    "package:extension": "node scripts/package-extension.mjs",
+    "prepublishOnly": "npm test"
+  },
+  "engines": { "node": ">=20" },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "ws": "^8.18.0"
   }
 }

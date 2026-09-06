@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Porthole — setup</title>
+  <link rel="stylesheet" href="welcome.css">
+</head>
+<body>
+<main>
+  <header>
+    <img src="icons/icon128.png" alt="" width="56" height="56">
+    <div>
+      <h1>Porthole</h1>
+      <p class="tagline">Your AI coding agent, looking through one tab at a time.</p>
+    </div>
+  </header>
+
+  <section class="callout">
+    <p>
+      Porthole shows your agent <strong>only the tabs you explicitly share</strong>, and only for
+      reading until you say otherwise. Nothing is sent anywhere — the connection is to a server
+      running on your own machine, on localhost.
+    </p>
+  </section>
+
+  <h2>Three steps</h2>
+
+  <ol class="steps">
+    <li>
+      <h3>Install the bridge</h3>
+      <p>In a terminal:</p>
+      <pre><code>npx claude-chrome-bridge setup</code></pre>
+      <p class="hint">Registers with Claude Code for every project and prints your pairing token.</p>
+    </li>
+    <li>
+      <h3>Pair this extension</h3>
+      <p>Paste the token that command printed:</p>
+      <form id="pair-form">
+        <input id="token" type="password" placeholder="paste your pairing token" autocomplete="off" spellcheck="false">
+        <button type="submit" class="primary">Pair</button>
+      </form>
+      <p class="hint" id="pair-status">You can also do this any time from the Porthole popup.</p>
+    </li>
+    <li>
+      <h3>Share a tab</h3>
+      <p>
+        Open the page you want help with, click the Porthole icon in your toolbar, and choose
+        <strong>Share this tab</strong>. Then ask your agent to read it.
+      </p>
+      <p class="hint">
+        Chrome will show its own “Porthole is debugging this browser” banner on shared tabs. That
+        banner is intentional — it is how you can always tell what is being watched. Closing it
+        stops sharing.
+      </p>
+    </li>
+  </ol>
+
+  <h2>What it can and cannot do</h2>
+  <div class="grid">
+    <div class="card can">
+      <h3>Can</h3>
+      <ul>
+        <li>Read tabs you share — text, structure, screenshots</li>
+        <li>Report console errors and failed network requests</li>
+        <li>Click, type and navigate — only after you enable <em>Allow control</em> for that tab</li>
+      </ul>
+    </div>
+    <div class="card cannot">
+      <h3>Cannot</h3>
+      <ul>
+        <li>See any tab you have not shared, or list them</li>
+        <li>Read password fields — their values are never captured</li>
+        <li>Keep access after you close the tab, change site, or hit <em>Stop all sharing</em></li>
+        <li>Send anything off your machine — there is no server but your own</li>
+      </ul>
+    </div>
+  </div>
+
+  <footer>
+    <p>
+      Sharing also ends on its own after 30 idle minutes.
+      <a href="https://github.com/vijaysingh/porthole" target="_blank" rel="noreferrer">Source code</a> ·
+      <a href="https://github.com/vijaysingh/porthole/blob/main/PRIVACY.md" target="_blank" rel="noreferrer">Privacy</a>
+    </p>
+  </footer>
+</main>
+<script src="welcome.js" type="module"></script>
+</body>
+</html>

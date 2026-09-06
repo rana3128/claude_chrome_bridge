@@ -170,7 +170,7 @@ test('addressing a real tab while the extension is asleep explains why', async (
     const res = await client.callTool({ name: 'read_page', arguments: { tabId: 42 } });
     assert.equal(res.isError, true);
     assert.match(textOf(res), /not connected/);
-    assert.match(textOf(res), /Claude Chrome Bridge icon/);
+    assert.match(textOf(res), /Porthole icon/);
   });
 });
 

@@ -22,7 +22,13 @@ async function boot(reason) {
 }
 
 chrome.runtime.onStartup.addListener(() => boot('browser startup'));
-chrome.runtime.onInstalled.addListener(() => boot('installed'));
+chrome.runtime.onInstalled.addListener(async (details) => {
+  await boot('installed');
+  // A first-time user has no idea a server has to be running; show them.
+  if (details.reason === 'install') {
+    await chrome.tabs.create({ url: chrome.runtime.getURL('welcome.html') });
+  }
+});
 boot('worker wake');
 
 chrome.alarms.onAlarm.addListener(async (alarm) => {

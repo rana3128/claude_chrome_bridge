@@ -242,7 +242,7 @@ export function createHandlers(router) {
           'No tabs are shared.\n\n' +
           (router.connectionNote() ||
             'The extension is connected but the user has not shared any tab yet. Ask them to open the tab they ' +
-            'want you to see, click the Claude Chrome Bridge icon, and choose "Share this tab". Sharing is ' +
+            'want you to see, click the Porthole icon, and choose "Share this tab". Sharing is ' +
             'per-tab and deliberate — there is no way to enumerate or access unshared tabs.'),
         );
       }

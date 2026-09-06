@@ -119,7 +119,7 @@ export async function authorize(method, tabId) {
   const grant = await get(tabId);
   if (!grant) {
     const e = new Error(
-      `Tab ${tabId} is not shared. The user must open that tab, click the Claude Chrome Bridge icon and ` +
+      `Tab ${tabId} is not shared. The user must open that tab, click the Porthole icon and ` +
       'choose "Share this tab". Sharing is per-tab and deliberate.',
     );
     e.code = 'not_shared';
@@ -176,8 +176,8 @@ export async function syncBadges(grants) {
       await chrome.action.setTitle({
         tabId: grant.tabId,
         title: grant.control
-          ? 'Claude Chrome Bridge — shared, Claude can read AND control this tab'
-          : 'Claude Chrome Bridge — shared read-only with Claude',
+          ? 'Porthole — shared, Claude can read AND control this tab'
+          : 'Porthole — shared read-only with Claude',
       });
     } catch { /* the tab may have closed mid-sync */ }
   }
@@ -186,6 +186,6 @@ export async function syncBadges(grants) {
 export async function clearBadge(tabId) {
   try {
     await chrome.action.setBadgeText({ tabId, text: '' });
-    await chrome.action.setTitle({ tabId, title: 'Claude Chrome Bridge' });
+    await chrome.action.setTitle({ tabId, title: 'Porthole' });
   } catch { /* tab gone */ }
 }

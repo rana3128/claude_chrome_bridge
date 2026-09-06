@@ -151,3 +151,48 @@ the data the tool exists to deliver, and they look identical to a real secret be
 **StaticText that repeats its parent's accessible name is dropped, and zero-width marks are
 stripped.** On a real page nearly half the a11y output was `heading "X"` immediately followed by
 `text "X"`, plus dozens of `text "​"` lines from layout hacks.
+
+## Productisation
+
+**Named Porthole, published as `claude-chrome-bridge` on npm.** Leading a third-party Chrome
+Web Store listing with "Claude" invites both a store rejection under the trademark policy and a
+complaint later, and renaming after launch breaks every installed user's config. The store name
+is therefore distinct and the description carries the descriptive "Works with Claude Code",
+which is permitted. npm is a lower-risk surface where discoverability matters more, so the
+package keeps the `claude-` prefix. TabBridge and Loupe were both already taken by existing
+extensions; Porthole was clear, and the metaphor is right — a small, deliberate opening you
+look through, not a wide-open door.
+
+**MIT licensed.** The extension asks for `chrome.debugger`, about the most powerful permission
+Chrome grants. Being auditable is the main reason a stranger should be willing to install it,
+and a restrictive licence would undercut exactly the trust the tool depends on.
+
+**One npm package at the repository root, not a package per component.** The server imports the
+canonical `protocol.js` and `redact.js` out of `extension/lib`, and npm cannot include files
+above a package root. Flattening keeps the single-source-of-truth arrangement and ships the
+extension source alongside, so `load unpacked` works before the store listing is live.
+
+**`npx claude-chrome-bridge` is the documented launch command, and the CLI detects which form
+to register.** Installed from npm it registers the `npx` form, which survives updates and
+relocations; from a checkout only an absolute path is reliable. Getting this wrong produces the
+exact failure this project already hit once — a registered path that does not resolve.
+
+**Subcommands (`setup`, `pair`, `extension`), with no arguments still meaning "be the MCP
+server".** An MCP client launches the binary with no arguments, so that case cannot be a help
+screen.
+
+**`setup` is an explicit command, never a postinstall hook.** It edits the user's Claude Code
+configuration, which should never happen as a side effect of installing something.
+
+**A first-run onboarding page opens on install.** The extension is inert without the companion
+program, and a new user has no way to guess that. It also explains the security model at the
+moment attention is highest, and lets them pair without hunting for the popup.
+
+**`package:extension` validates the manifest before zipping** — version drift against
+package.json, an over-long description, missing icons, unexpected permissions, any
+`host_permissions`. All of these are cheap to catch locally and expensive to discover after a
+multi-day store review. It caught a 139-character description on its first run.
+
+**Store listing copy and permission justifications live in `STORE_LISTING.md`.** A `debugger`
+extension gets manual review; the justifications are the difference between approval and
+rejection, and they need to be version-controlled alongside the code they describe.
