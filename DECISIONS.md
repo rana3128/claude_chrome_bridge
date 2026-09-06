@@ -30,6 +30,13 @@ report failure — no `close` event arrives at all in some environments. Without
 slot sits in `connecting` forever and is never retried, so a server started later is never
 found. This was a real bug, caught by the multi-server test.
 
+**Unknown ports are probed one per sweep, in rotation.** Chrome logs every refused WebSocket
+dial to the console and it cannot be caught or silenced, so probing all ten ports every 20
+seconds buried real errors under `ERR_CONNECTION_REFUSED`. Ports that have answered before are
+remembered in `chrome.storage.local` and always retried; unknown ones come up in rotation. That
+trades a slightly slower first discovery of a brand-new port for a console that is readable,
+and Reconnect still probes everything at once.
+
 **Discovery re-sweeps every 20 seconds once at least one server is connected**, with
 exponential backoff up to 30s when none is. A new session's server is therefore picked up
 within ~20 seconds; the popup's **Reconnect** button forces it immediately.

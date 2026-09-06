@@ -172,6 +172,12 @@ A newly started session is found within ~20 seconds, or immediately via **Reconn
 **Popup shows the wrong state, or a session can't see a shared tab.** Click **Reconnect** in
 the popup — it drops every link and redials the whole port range at once.
 
+**`ERR_CONNECTION_REFUSED` in the extension's service-worker console.** Expected, and harmless.
+Finding servers means dialling ports, and Chrome logs every refused WebSocket dial with no way
+to catch or silence it. Routine sweeps probe only the base port, ports a server has answered on
+before, and one unknown port in rotation, so this should be about one line per sweep rather than
+a wall. **Reconnect** deliberately probes the whole range and will log more.
+
 **Popup says "Token rejected".** The token was rotated. Re-copy it from
 `~/.claude-chrome-bridge/token.json` and paste it again.
 

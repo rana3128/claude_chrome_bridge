@@ -22,7 +22,14 @@ export const PORT_SPAN = 10;
 
 const BASE_BACKOFF_MS = 1000;
 const MAX_BACKOFF_MS = 30000;
-const IDLE_DISCOVERY_MS = 20000; // re-sweep for new servers once we have one
+const IDLE_DISCOVERY_MS = 20000; // re-sweep for known ports once we have one
+// Chrome logs every refused WebSocket dial to the console and there is no way
+// to catch or silence it, so probing all ten ports every 20s buries real errors
+// under a wall of ERR_CONNECTION_REFUSED. Ports that have hosted a server
+// before are always retried; unknown ports are probed one per sweep in
+// rotation, which keeps the noise to roughly one line per sweep while still
+// finding a new session on its own within a couple of minutes. Reconnect
+// probes the whole range at once.
 const PING_MS = 20000;
 // A dial to a port with nothing behind it does not reliably report failure —
 // no close event ever arrives. Without a deadline that slot stays "connecting"
@@ -31,6 +38,9 @@ const DIAL_TIMEOUT_MS = 3000;
 
 /** port -> { ws, status, server, pingTimer } */
 const links = new Map();
+/** Ports a server has actually answered on, remembered across worker restarts. */
+let knownPorts = new Set();
+let coldCursor = 0;
 let sweeps = 0;
 let sweepTimer = null;
 let unauthorized = false;
@@ -71,8 +81,15 @@ function announce() {
 }
 
 async function settings() {
-  const s = await chrome.storage.local.get(['token', 'port']);
+  const s = await chrome.storage.local.get(['token', 'port', 'knownPorts']);
+  if (Array.isArray(s.knownPorts) && !knownPorts.size) knownPorts = new Set(s.knownPorts);
   return { token: s.token || '', port: Number(s.port) || DEFAULT_PORT };
+}
+
+async function rememberPort(port) {
+  if (knownPorts.has(port)) return;
+  knownPorts.add(port);
+  await chrome.storage.local.set({ knownPorts: [...knownPorts] });
 }
 
 export async function setToken(token) {
@@ -132,8 +149,19 @@ export async function connect({ force = false } = {}) {
 
   sweeps++;
   const version = chrome.runtime.getManifest().version;
-  for (let i = 0; i < PORT_SPAN; i++) {
-    const port = base + i;
+  // Reconnect probes everything; a routine sweep probes the base port, every
+  // port a server has answered on before, and one unknown port in rotation.
+  const probe = new Set([base, ...knownPorts]);
+  if (force) {
+    for (let i = 0; i < PORT_SPAN; i++) probe.add(base + i);
+  } else {
+    for (let i = 0; i < PORT_SPAN; i++) {
+      const port = base + ((coldCursor + i) % PORT_SPAN);
+      if (!probe.has(port)) { probe.add(port); coldCursor = (port - base + 1) % PORT_SPAN; break; }
+    }
+  }
+
+  for (const port of [...probe].sort((a, b) => a - b)) {
     const existing = links.get(port);
     if (existing && (existing.status === 'connected' || existing.status === 'connecting')) continue;
     dial(port, token, version);
@@ -199,6 +227,7 @@ function onMessage(port, ws, raw) {
     lastError = null;
     link.status = 'connected';
     link.server = { ...(frame.server || {}), version: frame.serverVersion };
+    void rememberPort(port);
     clearTimeout(link.dialTimer);
     clearInterval(link.pingTimer);
     // Traffic on the socket also keeps the service worker from being evicted.
