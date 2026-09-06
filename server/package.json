@@ -1,0 +1,17 @@
+{
+  "name": "claude-chrome-bridge-server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "bin": { "claude-chrome-bridge": "src/index.js" },
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node src/index.js --verbose",
+    "test": "node --test test/*.test.js"
+  },
+  "engines": { "node": ">=20" },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "ws": "^8.18.0"
+  }
+}

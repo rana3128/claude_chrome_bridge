@@ -1,0 +1,12 @@
+{
+  "name": "claude-chrome-bridge",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "npm --prefix server run start",
+    "dev": "npm --prefix server run dev",
+    "test": "npm --prefix server test",
+    "install:all": "npm --prefix server install"
+  }
+}
