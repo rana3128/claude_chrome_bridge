@@ -50,8 +50,13 @@ export function hello(token, extensionVersion) {
   return { type: 'hello', protocolVersion: PROTOCOL_VERSION, token, extensionVersion };
 }
 
-export function welcome(serverVersion) {
-  return { type: 'welcome', protocolVersion: PROTOCOL_VERSION, serverVersion };
+/**
+ * `info` identifies which MCP server this is — pid and working directory —
+ * because several Claude Code sessions can each run their own, and the popup
+ * has to be able to tell them apart.
+ */
+export function welcome(serverVersion, info = {}) {
+  return { type: 'welcome', protocolVersion: PROTOCOL_VERSION, serverVersion, server: info };
 }
 
 export function cmd(id, method, params = {}) {

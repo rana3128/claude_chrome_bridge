@@ -34,6 +34,8 @@ body {
   font: 13px/1.45 ui-sans-serif, -apple-system, "Segoe UI", system-ui, sans-serif;
 }
 header { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
+header .row { margin-top: 0; }
+#reconnect { font-size: 11px; padding: 3px 8px; }
 h1 { font-size: 14px; margin: 0; letter-spacing: -0.01em; }
 h2 { font-size: 11px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--muted); margin: 16px 0 6px; }
 section:first-of-type h2 { margin-top: 0; }

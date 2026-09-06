@@ -8,8 +8,17 @@
 <body>
   <header>
     <h1>Claude Chrome Bridge</h1>
-    <span id="status" class="pill">…</span>
+    <div class="row">
+      <span id="status" class="pill">…</span>
+      <button id="reconnect" title="Redial every MCP server in the port range now">Reconnect</button>
+    </div>
   </header>
+
+  <section id="servers" hidden>
+    <h2>Servers <span id="server-count" class="count">0</span></h2>
+    <ul id="server-list"></ul>
+    <p class="hint">Each Claude Code session runs its own server. All of them can see the tabs you share.</p>
+  </section>
 
   <section id="pairing" hidden>
     <p class="hint" id="pairing-hint"></p>

@@ -104,8 +104,8 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
           await connection.setPort(msg.port);
           return sendResponse({ ok: true });
         case 'reconnect':
-          connection.reconnect(0);
-          return sendResponse({ ok: true });
+          await connection.reconnect(0);
+          return sendResponse({ ok: true, connection: connection.getState() });
         default:
           return sendResponse({ ok: false, error: `unknown message: ${msg.type}` });
       }

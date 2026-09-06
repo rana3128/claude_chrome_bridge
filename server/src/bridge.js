@@ -29,9 +29,10 @@ export class BridgeError extends Error {
  * peer until the extension wakes up and reconnects.
  */
 export class Bridge extends EventEmitter {
-  constructor({ token, port = 8787, host = '127.0.0.1', log = () => {} }) {
+  constructor({ token, port = 8787, host = '127.0.0.1', log = () => {}, serverVersion = '0.1.0' }) {
     super();
     this.token = token;
+    this.serverVersion = serverVersion;
     this.port = port;
     this.host = host;
     this.log = log;
@@ -121,7 +122,11 @@ export class Bridge extends EventEmitter {
         }
         this.peer = socket;
         this.peerInfo = { extensionVersion: frame.extensionVersion, since: Date.now() };
-        socket.send(JSON.stringify(welcome(process.env.npm_package_version || '0.1.0')));
+        socket.send(JSON.stringify(welcome(this.serverVersion, {
+          pid: process.pid,
+          cwd: process.cwd(),
+          port: this.port,
+        })));
         this.log(`extension connected (v${frame.extensionVersion ?? '?'})`);
         this.emit('connected', this.peerInfo);
         return;

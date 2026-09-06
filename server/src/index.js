@@ -33,6 +33,7 @@ async function main() {
     token,
     port: Number(opt('port', process.env.CCB_PORT || 8787)),
     log: debug,
+    serverVersion: VERSION,
   });
   const port = await bridge.listen();
 

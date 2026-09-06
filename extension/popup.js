@@ -27,20 +27,46 @@ function shortUrl(url) {
 const STATUS = {
   connected: ['Connected', 'connected'],
   connecting: ['Connecting…', 'connecting'],
-  disconnected: ['Server not found', 'error'],
+  disconnected: ['No server found', 'error'],
   'no-token': ['Not paired', 'error'],
   unauthorized: ['Token rejected', 'error'],
 };
+
+function projectName(server) {
+  if (!server?.cwd) return `pid ${server?.pid ?? '?'}`;
+  const parts = server.cwd.split('/').filter(Boolean);
+  return parts[parts.length - 1] || server.cwd;
+}
 
 async function render() {
   const state = await send({ type: 'get-state' });
   if (!state?.ok) return;
 
-  const [label, cls] = STATUS[state.connection.status] || ['Unknown', 'error'];
+  const conn = state.connection;
+  const [label, cls] = STATUS[conn.status] || ['Unknown', 'error'];
+  const servers = conn.servers || [];
   const pill = $('status');
-  pill.textContent = state.connection.status === 'connected' ? `${label} :${state.connection.port}` : label;
+  pill.textContent = conn.status === 'connected'
+    ? (servers.length > 1 ? `Connected ×${servers.length}` : `${label} :${conn.port}`)
+    : label;
   pill.className = `pill ${cls}`;
-  pill.title = state.connection.lastError || '';
+  pill.title = conn.lastError || '';
+
+  // Several Claude Code sessions can each run their own server; show them all,
+  // so "connected" is never ambiguous about *which* session can see this tab.
+  $('servers').hidden = servers.length < 2;
+  $('server-count').textContent = servers.length;
+  const serverList = $('server-list');
+  serverList.replaceChildren();
+  for (const s of servers) {
+    const li = document.createElement('li');
+    li.className = 'tab';
+    li.innerHTML =
+      `<div class="row spread"><span class="title">${escapeHtml(projectName(s.server))}</span>` +
+      `<span class="badge">:${s.port}</span></div>` +
+      `<div class="url">${escapeHtml(s.server?.cwd || '')}</div>`;
+    serverList.appendChild(li);
+  }
 
   const needsPairing = ['no-token', 'unauthorized'].includes(state.connection.status);
   $('pairing').hidden = !needsPairing;
@@ -165,6 +191,12 @@ $('save-token').addEventListener('click', async () => {
   $('token').value = '';
   toast('Pairing…');
   setTimeout(render, 700);
+});
+
+$('reconnect').addEventListener('click', async () => {
+  toast('Redialling…');
+  await send({ type: 'reconnect' });
+  setTimeout(render, 600);
 });
 
 $('panic').addEventListener('click', async () => {

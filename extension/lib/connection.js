@@ -1,31 +1,61 @@
-// The outbound WebSocket link to the MCP server.
+// The outbound WebSocket links to the MCP server(s).
 //
-// The extension always dials *out*; the browser never listens on a port. And
-// because an MV3 service worker is evicted whenever Chrome feels like it, a
-// dropped socket is the normal state of this system rather than a failure:
-// everything here is built to reconnect quietly and keep working.
+// The extension always dials *out*; the browser never listens on a port.
+//
+// Every Claude Code session spawns its own MCP server, and they land on
+// consecutive ports. So this connects to *all* of them at once rather than
+// picking one: a session that lost the race for port 8787 would otherwise be
+// permanently blind, with no way for the user to tell why. Each link is
+// independent — commands are answered on the socket they arrived on.
+//
+// An MV3 service worker is evicted whenever Chrome feels like it, so a dropped
+// socket is the normal state of this system rather than a failure.
 
 import { hello, parseFrame, ok, err, CLOSE_UNAUTHORIZED } from './protocol.js';
 import * as grants from './grants.js';
 import { HANDLERS } from './commands.js';
 
 export const DEFAULT_PORT = 8787;
-// The server walks forward from its default port if one is taken, so the
-// extension sweeps the same small range instead of making the user hunt.
-const PORT_SPAN = 10;
+// The server walks forward from its default port when one is taken, so this is
+// the window in which any server can be found.
+export const PORT_SPAN = 10;
+
 const BASE_BACKOFF_MS = 1000;
 const MAX_BACKOFF_MS = 30000;
+const IDLE_DISCOVERY_MS = 20000; // re-sweep for new servers once we have one
 const PING_MS = 20000;
+// A dial to a port with nothing behind it does not reliably report failure —
+// no close event ever arrives. Without a deadline that slot stays "connecting"
+// for good and is never retried, so a server started later is never found.
+const DIAL_TIMEOUT_MS = 3000;
 
-let socket = null;
-let attempts = 0;
-let reconnectTimer = null;
-let pingTimer = null;
-let state = { status: 'disconnected', since: Date.now(), lastError: null, port: null };
+/** port -> { ws, status, server, pingTimer } */
+const links = new Map();
+let sweeps = 0;
+let sweepTimer = null;
+let unauthorized = false;
+let lastError = null;
 const watchers = new Set();
 
 export function getState() {
-  return { ...state, connected: state.status === 'connected' };
+  const list = [...links.entries()]
+    .map(([port, l]) => ({ port, status: l.status, server: l.server || null }))
+    .sort((a, b) => a.port - b.port);
+  const connected = list.filter((l) => l.status === 'connected');
+
+  let status = 'disconnected';
+  if (unauthorized) status = 'unauthorized';
+  else if (connected.length) status = 'connected';
+  else if (list.some((l) => l.status === 'connecting')) status = 'connecting';
+
+  return {
+    status,
+    connected: connected.length > 0,
+    servers: connected,
+    links: list,
+    port: connected[0]?.port ?? null,
+    lastError,
+  };
 }
 
 export function onStateChange(fn) {
@@ -33,10 +63,10 @@ export function onStateChange(fn) {
   return () => watchers.delete(fn);
 }
 
-function setState(patch) {
-  state = { ...state, ...patch, since: Date.now() };
+function announce() {
+  const state = getState();
   for (const fn of watchers) {
-    try { fn(getState()); } catch { /* a watcher must not break the socket */ }
+    try { fn(state); } catch { /* a watcher must not break the socket */ }
   }
 }
 
@@ -47,88 +77,136 @@ async function settings() {
 
 export async function setToken(token) {
   await chrome.storage.local.set({ token: String(token || '').trim() });
-  attempts = 0;
-  reconnect(0);
+  unauthorized = false;
+  lastError = null;
+  await reconnect(0);
 }
 
 export async function setPort(port) {
   await chrome.storage.local.set({ port: Number(port) || DEFAULT_PORT });
-  attempts = 0;
-  reconnect(0);
+  dropAll('port changed');
+  await reconnect(0);
 }
 
 function backoffMs() {
-  const exp = Math.min(BASE_BACKOFF_MS * 2 ** attempts, MAX_BACKOFF_MS);
+  const exp = Math.min(BASE_BACKOFF_MS * 2 ** sweeps, MAX_BACKOFF_MS);
   return exp * (0.7 + Math.random() * 0.6); // jitter, so many wakeups don't sync up
 }
 
-export function reconnect(delay = backoffMs()) {
-  clearTimeout(reconnectTimer);
-  reconnectTimer = setTimeout(() => connect(), delay);
+function scheduleSweep(delay) {
+  clearTimeout(sweepTimer);
+  if (unauthorized) return; // a wrong token will stay wrong; wait for the user
+  const anyConnected = [...links.values()].some((l) => l.status === 'connected');
+  sweepTimer = setTimeout(() => void connect(), delay ?? (anyConnected ? IDLE_DISCOVERY_MS : backoffMs()));
 }
 
-export async function connect() {
-  if (socket && (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING)) return;
-  const { token, port } = await settings();
+/** Forced, immediate redial of everything — what the popup's Reconnect does. */
+export async function reconnect(delay = 0) {
+  sweeps = 0;
+  unauthorized = false;
+  clearTimeout(sweepTimer);
+  if (delay > 0) return scheduleSweep(delay);
+  return connect({ force: true });
+}
+
+function dropAll(reason) {
+  for (const [port, link] of links) {
+    clearInterval(link.pingTimer);
+    clearTimeout(link.dialTimer);
+    try { link.ws?.close(1000, reason); } catch { /* already gone */ }
+    links.delete(port);
+  }
+}
+
+/** Dial every port in the range that we do not already have a live link on. */
+export async function connect({ force = false } = {}) {
+  const { token, port: base } = await settings();
   if (!token) {
-    setState({ status: 'no-token', lastError: 'Paste the pairing token from the MCP server to finish setup.' });
+    lastError = 'Paste the pairing token from the MCP server to finish setup.';
+    unauthorized = false;
+    for (const [, l] of links) l.status = 'disconnected';
+    announce();
     return;
   }
+  if (force) dropAll('reconnecting');
 
-  // Sweep the port range the server may have landed on.
-  const candidate = port + (attempts % PORT_SPAN);
-  setState({ status: 'connecting', port: candidate, lastError: null });
+  sweeps++;
+  const version = chrome.runtime.getManifest().version;
+  for (let i = 0; i < PORT_SPAN; i++) {
+    const port = base + i;
+    const existing = links.get(port);
+    if (existing && (existing.status === 'connected' || existing.status === 'connecting')) continue;
+    dial(port, token, version);
+  }
+  announce();
+  scheduleSweep();
+}
 
+function dial(port, token, version) {
   let ws;
   try {
-    ws = new WebSocket(`ws://127.0.0.1:${candidate}`);
+    ws = new WebSocket(`ws://127.0.0.1:${port}`);
   } catch (e) {
-    setState({ status: 'disconnected', lastError: e.message });
-    attempts++;
-    reconnect();
+    links.set(port, { status: 'disconnected', error: e.message });
     return;
   }
-  socket = ws;
+  const link = { ws, status: 'connecting', server: null, pingTimer: null, dialTimer: null };
+  links.set(port, link);
+
+  link.dialTimer = setTimeout(() => {
+    if (link.status === 'connected') return;
+    try { ws.close(1000, 'dial timed out'); } catch { /* already gone */ }
+    if (links.get(port) === link) links.delete(port);
+    announce();
+  }, DIAL_TIMEOUT_MS);
 
   ws.addEventListener('open', () => {
-    ws.send(JSON.stringify(hello(token, chrome.runtime.getManifest().version)));
+    ws.send(JSON.stringify(hello(token, version)));
   });
 
-  ws.addEventListener('message', (ev) => onMessage(ws, ev.data));
+  ws.addEventListener('message', (ev) => onMessage(port, ws, ev.data));
 
   ws.addEventListener('close', (ev) => {
-    clearInterval(pingTimer);
-    if (socket === ws) socket = null;
+    clearInterval(link.pingTimer);
+    clearTimeout(link.dialTimer);
+    if (links.get(port)?.ws !== ws) return; // superseded by a newer dial
     if (ev.code === CLOSE_UNAUTHORIZED) {
-      // A wrong token will stay wrong. Stop hammering and ask the user.
-      setState({
-        status: 'unauthorized',
-        lastError: 'The server rejected this token. Copy the current token from ~/.claude-chrome-bridge/token.json and paste it again.',
-      });
+      // Same token everywhere, so one rejection means all of them will reject.
+      unauthorized = true;
+      lastError = 'The server rejected this token. Copy the current token from ~/.claude-chrome-bridge/token.json and paste it again.';
+      links.delete(port);
+      announce();
       return;
     }
-    attempts++;
-    setState({ status: 'disconnected', lastError: ev.reason || null });
-    reconnect();
+    links.delete(port);
+    announce();
+    scheduleSweep();
   });
 
-  ws.addEventListener('error', () => {
-    // The close event follows and carries the useful information.
-  });
+  // The close event follows an error and carries the useful information.
+  ws.addEventListener('error', () => {});
 }
 
-function onMessage(ws, raw) {
+function onMessage(port, ws, raw) {
   const { frame, error } = parseFrame(raw);
   if (error) return;
+  const link = links.get(port);
+  if (!link || link.ws !== ws) return;
 
   if (frame.type === 'welcome') {
-    attempts = 0;
-    setState({ status: 'connected', lastError: null });
-    clearInterval(pingTimer);
+    sweeps = 0;
+    unauthorized = false;
+    lastError = null;
+    link.status = 'connected';
+    link.server = { ...(frame.server || {}), version: frame.serverVersion };
+    clearTimeout(link.dialTimer);
+    clearInterval(link.pingTimer);
     // Traffic on the socket also keeps the service worker from being evicted.
-    pingTimer = setInterval(() => {
+    link.pingTimer = setInterval(() => {
       if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'ping' }));
     }, PING_MS);
+    announce();
+    scheduleSweep();
     return;
   }
   if (frame.type === 'pong' || frame.type === 'ping') return;
@@ -139,7 +217,8 @@ async function handleCommand(ws, frame) {
   const { id, method, params = {} } = frame;
   try {
     // Permission is checked here, on every single command, from the store —
-    // never from anything the server told us.
+    // never from anything a server told us. Several servers may be connected;
+    // none of them is more trusted than any other.
     await grants.authorize(method, params.tabId);
     const handler = HANDLERS[method];
     if (!handler) throw Object.assign(new Error(`unsupported method: ${method}`), { code: 'unsupported' });
@@ -154,17 +233,16 @@ async function handleCommand(ws, frame) {
 }
 
 export function disconnect() {
-  clearTimeout(reconnectTimer);
-  clearInterval(pingTimer);
-  if (socket) {
-    try { socket.close(1000, 'extension shutting down'); } catch { /* already closed */ }
-    socket = null;
-  }
-  setState({ status: 'disconnected' });
+  clearTimeout(sweepTimer);
+  dropAll('extension shutting down');
+  announce();
 }
 
+/** Tell every connected server about a change in what is shared. */
 export function notifyServer(name, data) {
-  if (socket?.readyState === WebSocket.OPEN) {
-    socket.send(JSON.stringify({ type: 'event', name, data }));
+  for (const link of links.values()) {
+    if (link.ws?.readyState === WebSocket.OPEN) {
+      link.ws.send(JSON.stringify({ type: 'event', name, data }));
+    }
   }
 }

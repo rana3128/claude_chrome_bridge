@@ -160,9 +160,17 @@ command re-checks permission against that store — never against anything the s
 
 ## Troubleshooting
 
-**Popup says "Server not found".** Claude Code hasn't started the server yet — run any
-`chrome-bridge` tool, or start `npm run dev` yourself. If port 8787 was taken the server
-walks forward to 8788+; the extension sweeps the same range automatically.
+**Popup says "No server found".** Claude Code hasn't started the server yet — run any
+`chrome-bridge` tool. Don't start one manually as well; each Claude Code session already
+spawns its own.
+
+**Several Claude Code sessions at once.** This is handled: each session's server takes the
+next free port (8787, 8788, …) and the extension keeps a link to *all* of them, so every
+session can see the tabs you share. The popup lists them by port and project directory.
+A newly started session is found within ~20 seconds, or immediately via **Reconnect**.
+
+**Popup shows the wrong state, or a session can't see a shared tab.** Click **Reconnect** in
+the popup — it drops every link and redials the whole port range at once.
 
 **Popup says "Token rejected".** The token was rotated. Re-copy it from
 `~/.claude-chrome-bridge/token.json` and paste it again.

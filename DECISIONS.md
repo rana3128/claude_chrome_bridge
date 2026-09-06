@@ -16,7 +16,25 @@ a network service. Comparison is constant-time. A rejected token stops the recon
 entirely and asks the user to re-pair, rather than hammering the port forever — a wrong token
 will stay wrong.
 
-**One authenticated connection at a time; a new `hello` replaces the old socket (close 4409).**
+**The extension connects to every server in the port range at once.** Originally it dialled
+one port and stopped, which was wrong: every Claude Code session spawns its own MCP server,
+they land on consecutive ports, and the extension would pair with whichever won the race.
+Any other session was then permanently blind, with a popup cheerfully reporting "Connected"
+and tools reporting "extension not connected" — the two ends disagreeing with no way for the
+user to see why. Now every port in the window gets its own link, commands are answered on the
+socket they arrived on, and all sessions share the same grants. The popup lists each connected
+server by port and project directory so "connected" is never ambiguous about *which* session.
+
+**Dials have a 3-second deadline.** A dial to a port with nothing behind it does not reliably
+report failure — no `close` event arrives at all in some environments. Without a deadline that
+slot sits in `connecting` forever and is never retried, so a server started later is never
+found. This was a real bug, caught by the multi-server test.
+
+**Discovery re-sweeps every 20 seconds once at least one server is connected**, with
+exponential backoff up to 30s when none is. A new session's server is therefore picked up
+within ~20 seconds; the popup's **Reconnect** button forces it immediately.
+
+**One authenticated connection at a time per server; a new `hello` replaces the old socket (close 4409).**
 Service worker restarts routinely leave a half-dead socket behind. Newest-wins is the only
 rule that makes reconnection reliable.
 
