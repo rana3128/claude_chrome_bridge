@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "description": "Let your AI coding agent see the tabs you choose. Per-tab opt-in, read-only by default, nothing leaves your machine.",
   "minimum_chrome_version": "116",
-  "homepage_url": "https://github.com/vijaysingh/porthole",
+  "homepage_url": "https://github.com/rana3128/claude_chrome_bridge",
   "permissions": [
     "tabs",
     "activeTab",

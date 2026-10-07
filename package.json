@@ -5,9 +5,9 @@
   "type": "module",
   "license": "MIT",
   "author": "Vijay Singh",
-  "homepage": "https://github.com/vijaysingh/porthole#readme",
-  "repository": { "type": "git", "url": "git+https://github.com/vijaysingh/porthole.git" },
-  "bugs": { "url": "https://github.com/vijaysingh/porthole/issues" },
+  "homepage": "https://github.com/rana3128/claude_chrome_bridge#readme",
+  "repository": { "type": "git", "url": "git+https://github.com/rana3128/claude_chrome_bridge.git" },
+  "bugs": { "url": "https://github.com/rana3128/claude_chrome_bridge/issues" },
   "keywords": [
     "mcp", "model-context-protocol", "claude", "claude-code", "chrome",
     "chrome-extension", "browser-automation", "devtools-protocol", "cdp", "porthole"

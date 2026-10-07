@@ -5,8 +5,7 @@
 **Your AI coding agent can read your code. It can't see your browser.**
 Porthole fixes that — one tab at a time.
 
-[![tests](https://github.com/vijaysingh/porthole/actions/workflows/test.yml/badge.svg)](https://github.com/vijaysingh/porthole/actions/workflows/test.yml)
-[![npm](https://img.shields.io/npm/v/claude-chrome-bridge)](https://www.npmjs.com/package/claude-chrome-bridge)
+[![tests](https://github.com/rana3128/claude_chrome_bridge/actions/workflows/test.yml/badge.svg)](https://github.com/rana3128/claude_chrome_bridge/actions/workflows/test.yml)
 [![license](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
 </div>
@@ -38,58 +37,91 @@ The extension dials **out**, so your browser never opens an inbound port.
 
 ---
 
-## Install
+## Quick start
+
+You need **Node 20+**, **Chrome**, and **Claude Code** (or another MCP client). Setup is two
+one-time steps: register the bridge with your agent, then install and pair the extension.
+
+### 1. Install the bridge and register it with Claude Code
 
 ```bash
-npx claude-chrome-bridge setup
+git clone https://github.com/rana3128/claude_chrome_bridge
+cd claude_chrome_bridge
+npm install
+npm run setup
 ```
 
-That registers the bridge with Claude Code for every project and prints your pairing token.
+`setup` registers the `chrome-bridge` MCP server with Claude Code for every project and prints
+your **pairing token**. Restart any running Claude Code session to pick it up.
 
-Then install the **Porthole** extension from the Chrome Web Store, click its icon, and paste
-the token. That's it.
+> Not using Claude Code, or `claude` isn't on your PATH? `setup` prints a JSON snippet to paste
+> into your MCP client's config instead. It looks like this:
+>
+> ```json
+> {
+>   "mcpServers": {
+>     "chrome-bridge": {
+>       "command": "node",
+>       "args": ["/absolute/path/to/claude_chrome_bridge/server/src/index.js"]
+>     }
+>   }
+> }
+> ```
 
-<details>
-<summary>Other MCP clients, or configuring by hand</summary>
+### 2. Load the extension in Chrome
 
-```json
-{
-  "mcpServers": {
-    "chrome-bridge": {
-      "command": "npx",
-      "args": ["-y", "claude-chrome-bridge"]
-    }
-  }
-}
-```
+1. Open `chrome://extensions` and switch on **Developer mode** (top right)
+2. Click **Load unpacked** and choose the [extension/](extension/) folder
+   (`npm run setup` prints its path; so does `node server/src/index.js extension`)
+3. Pin the **Porthole** icon to your toolbar
+4. Click the icon, paste the pairing token, press **Pair**
 
-`npx claude-chrome-bridge pair` reprints the token whenever you need it.
-</details>
+If you lose the token, `npm run pair` prints it again.
 
-<details>
-<summary>Running from a checkout instead</summary>
+The popup should now say it's connected. If it doesn't, see [Troubleshooting](#troubleshooting).
 
-```bash
-git clone https://github.com/vijaysingh/porthole && cd porthole
-npm install && npm run setup
-```
-
-Load the extension from `chrome://extensions` → Developer mode → **Load unpacked** →
-the `extension/` folder (`npx claude-chrome-bridge extension` prints the path).
-</details>
-
-## Use it
+## Using it
 
 1. Open the tab you want help with
 2. Click the Porthole icon → **Share this tab**
-3. Ask your agent
+3. Ask your agent in plain language
 
 > *"Read the shared tab and tell me why the submit button is disabled"*
 > *"Screenshot the tab, then check the console for errors"*
+> *"Why is this page's network request failing?"*
 > *"Fill in the form with test data and submit it"* — needs **Allow control**
+
+Your agent only ever sees tabs you have shared. It starts with `list_tabs`, then reads with
+`read_page`, `screenshot_tab`, `console_logs` and so on.
+
+**Allow control.** Sharing is read-only by default. To let the agent click, type, scroll or
+navigate, open the popup and turn on **Allow control** for that tab. Turn it off again when
+you're done.
+
+**Stop sharing.** Click **Stop** next to the tab in the popup, close the tab, or use the
+panic button to revoke everything at once. Sharing also ends on its own if the tab navigates to
+another site or sits idle for 30 minutes.
 
 Chrome shows its own *"Porthole is debugging this browser"* banner on shared tabs. That banner
 is intentional: it's how you can always tell what's being watched. Closing it stops sharing.
+
+### Try it without a browser
+
+```bash
+npm run dev -- --fake-tab
+```
+
+exposes an in-memory tab (`fake:1`) so you can exercise every tool with no Chrome involved.
+
+### Command reference
+
+| Command | What it does |
+|---|---|
+| `npm run setup` | Register with Claude Code and print the token (`--local` for this project only) |
+| `npm run pair` | Reprint the pairing token |
+| `node server/src/index.js extension` | Print the extension folder path |
+| `node server/src/index.js --new-token` | Rotate the token (you must re-pair the extension) |
+| `--port <n>` | Listen on a different port (default 8787, walks forward if taken) |
 
 ## What your agent gets
 
@@ -139,9 +171,9 @@ provider, under *their* privacy policy. Don't share a tab you wouldn't be willin
 ## Troubleshooting
 
 **Popup says "No server found".** No bridge is running. Start your agent, or run
-`npx claude-chrome-bridge` yourself. Click **Reconnect** in the popup to redial immediately.
+`npm start` yourself. Click **Reconnect** in the popup to redial immediately.
 
-**Popup says "Token rejected".** The token was rotated. `npx claude-chrome-bridge pair` prints
+**Popup says "Token rejected".** The token was rotated. `npm run pair` prints
 the current one.
 
 **"Another debugger is already attached".** You have DevTools open on that tab; Chrome allows
@@ -166,7 +198,7 @@ ports, and Chrome logs every refused dial with no way to silence it.
 
 ```bash
 npm install
-npm test                    # 90 tests: protocol, redaction, truncation, permissions, e2e MCP
+npm test                    # 91 tests: protocol, redaction, truncation, permissions, e2e MCP
 npm run dev                 # bridge with verbose logging
 npm run dev -- --fake-tab   # exposes an in-memory tab, so the tools work with no browser at all
 npm run package:extension   # build the Chrome Web Store zip

@@ -84,4 +84,4 @@ Material changes will be noted here and in the repository's release notes.
 
 ## Contact
 
-Issues and security reports: https://github.com/vijaysingh/porthole/issues
+Issues and security reports: https://github.com/rana3128/claude_chrome_bridge/issues

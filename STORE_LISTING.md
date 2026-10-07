@@ -76,7 +76,7 @@ Developer Tools
 > 2. Paste the token it prints into this extension
 > 3. Open a tab, click Porthole, choose Share this tab
 >
-> Open source, MIT licensed: https://github.com/vijaysingh/porthole
+> Open source, MIT licensed: https://github.com/rana3128/claude_chrome_bridge
 
 ## Single purpose (required)
 
@@ -149,7 +149,7 @@ Certifications:
 
 ## Privacy policy URL
 
-`https://github.com/vijaysingh/porthole/blob/main/PRIVACY.md`
+`https://github.com/rana3128/claude_chrome_bridge/blob/main/PRIVACY.md`
 
 ## Assets still to produce
 

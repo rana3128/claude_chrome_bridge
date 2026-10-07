@@ -5,7 +5,7 @@ messages if you share those tabs. We take reports seriously.
 
 ## Reporting a vulnerability
 
-Open a [private security advisory](https://github.com/vijaysingh/porthole/security/advisories/new)
+Open a [private security advisory](https://github.com/rana3128/claude_chrome_bridge/security/advisories/new)
 rather than a public issue. Please include what you did, what happened, and what you expected.
 
 Expect an acknowledgement within 72 hours.
